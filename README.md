@@ -32,7 +32,7 @@ inbox train                     # all models, gate, registry, reports/report.jso
 inbox train --with-transformer  # also the transformer challenger
 inbox dp-scale                  # privacy cost vs number of users
 inbox serve                     # API on :8000
-pytest                          # 18 tests, including a fast end-to-end training run
+pytest                          # 19 tests, including a fast end-to-end training run
 docker build -t inbox-ml .      # inference image (after inbox train)
 ```
 
