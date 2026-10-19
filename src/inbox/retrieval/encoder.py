@@ -15,12 +15,7 @@ import torch
 from torch import nn
 
 from .. import features
-from .corpus import Corpus
-
-
-def doc_text(contact: str, text: str) -> str:
-    """What gets indexed: the sender is part of the document, as it is in any chat UI."""
-    return f"{contact}: {text}"
+from .corpus import Corpus, doc_text
 
 
 class DualEncoder(nn.Module):

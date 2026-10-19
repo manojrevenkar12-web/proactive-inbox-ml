@@ -14,8 +14,7 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 from .. import features
-from .corpus import Message
-from .encoder import doc_text
+from .corpus import Message, doc_text
 
 RRF_K = 60
 

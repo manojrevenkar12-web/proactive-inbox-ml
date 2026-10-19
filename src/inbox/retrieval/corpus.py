@@ -272,6 +272,11 @@ class Corpus:
     queries: list[Query]
 
 
+def doc_text(contact: str, text: str) -> str:
+    """What gets indexed: the sender is part of the document, as it is in any chat UI."""
+    return f"{contact}: {text}"
+
+
 def _fmt(t: str, slots: dict) -> str:
     return t.format(**slots)
 
