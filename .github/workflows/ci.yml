@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install (CPU-only PyTorch)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[train,dev]"
+      - run: .github/run.sh ruff check --output-format=full src tests
+      - run: .github/run.sh ruff format --check --diff src tests
+      - name: Download and verify CLINC150 (pinned commit, SHA-256)
+        run: .github/run.sh inbox data
+      - run: .github/run.sh pytest -q
+      - name: Fast training run, gate and registry
+        run: |
+          .github/run.sh inbox train --fast
+          python -c "import json; r=json.load(open('artifacts/reports/report.json')); print(json.dumps({k: r['classifier']['candidates'][k]['metrics']['inscope_accuracy'] for k in r['classifier']['candidates']}))" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: models
+          path: artifacts/models
+          retention-days: 7
+
+  serve:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: models
+          path: artifacts/models
+      - run: docker build -t inbox-ml .
+      - name: Image has no PyTorch and serves requests
+        run: |
+          test -z "$(docker run --rm inbox-ml pip list 2>/dev/null | grep -i '^torch ')"
+          docker run -d --name api -p 8000:8000 inbox-ml
+          for i in $(seq 1 30); do curl -fs localhost:8000/healthz && break; sleep 1; done
+          curl -fs -X POST localhost:8000/v1/classify -H 'content-type: application/json' -d '{"messages":["remind me to call mom at 5"]}'
+          pip install httpx numpy
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, "src")
+          from inbox.serving.loadtest import run
+          r = run("http://127.0.0.1:8000", 1000, 8)
+          print(json.dumps(r))
+          assert r["requests"] == 1000
+          PY
+          docker image ls inbox-ml --format '{{.Size}}'
